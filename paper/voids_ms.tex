@@ -1,0 +1,50 @@
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\begin{document}
+
+\section{Introduction}
+
+
+\section{Void statistics}
+
+\section{Weiner reconstruction}
+Let's say we have an underlying signal that is a realization of a Gaussian random field with zero mean. The observed signal is a noisy estimate of the underlying signal at any given location.
+
+\begin{equation}
+\mathbf{y} = \mathbf{s}_d + \mathbf{e}
+\end{equation}
+
+The aim is to design a operator $\mathbf{G}$, such that the linear estimate  of the signal at any given location $\mathbf{\hat{s}}_m = \mathbf{G}\ \mathbf{y}$, minimizes the objective function:
+\begin{equation}
+\epsilon = \mathbb{E}[ |\mathbf{\hat{s}}_m - \mathbf{s}_m|^2]
+\end{equation}
+
+Writing all the one-dimensional vectors as a column vector, we have
+
+\begin{align*}
+    \epsilon &= \mathbb{E}[\mathrm{Tr}[(\mathbf{\hat{s}}_m - \mathbf{s}_m)(\mathbf{\hat{s}}_m - \mathbf{s}_m)^T]] \\
+             &= \mathrm{Tr}[\mathbb{E} (\mathbf{\hat{s}}_m\ \mathbf{\hat{s}}_m^T) - \mathbb{E} (\mathbf{\hat{s}}_m\ \mathbf{s}_m^T) - \mathbb{E} (\mathbf{s}_m\ \mathbf{\hat{s}}_m^T) + \mathbb{E} (\mathbf{s}_m\ \mathbf{s}_m^T)]
+\end{align*}
+
+The last term is nothing but the covariance matrix of the signal at the mapped locations, denoted as $\mathbf{C}_{mm}$. The second term can be written as:
+\[\mathbb{E} [\mathbf{\hat{s}}_m\ \mathbf{s}_m^T] = \mathbb{E} [\mathbf{G}\ \mathbf{y}\  \mathbf{s}_m^T] = \mathbb{E} [\mathbf{G}\ (\mathbf{s}_d + \mathbf{e})\  \mathbf{s}_m^T]  = \mathbf{G} \mathbb{E} [\mathbf{s}\ \mathbf{s}_m^T] = \mathbf{G}\ \mathbf{C}_{dm}.
+\]
+It is assumed that the signal and the error processes are uncorrelated. Similarly, the third term reduces to $\mathbf{C}_{md} \mathbf{G}^T$. The first term can be simplified as:
+
+\begin{align*}
+\mathbb{E} (\mathbf{\hat{s}}_m\ \mathbf{\hat{s}}_m^T) &= \mathbb{E} [\mathbf{G}\ \mathbf{y}\mathbf{y}^T\ \mathbf{G}^T ] \\
+   &= \mathbb{E} [\mathbf{G}\ (\mathbf{s}_d + \mathbf{e})(\mathbf{s}_d^T + \mathbf{e}^T)\ \mathbf{G}^T ] \\
+   &= \mathbf{G}\  (\mathbf{C}_{dd} + \mathbf{N})\ \mathbf{G}^T
+\end{align*}
+The error term then becomes:
+\[\epsilon = \mathrm{Tr}[\mathbf{G}\  (\mathbf{C}_{dd} + \mathbf{N})\ \mathbf{G}^T] - 2\ \mathrm{Tr}[\mathbf{G}\ \mathbf{C}_{dm}] + \mathrm{Tr}[\mathbf{C}_{mm}]
+\]
+Minimizing this term w.r.t $\mathbf{G}$ by setting the first derivative to 0, the optimal estimator is:
+\begin{equation} \mathbf{G} = \mathbf{C}_{md}[\mathbf{C}_{dd} + \mathbf{N}]^{-1}\end{equation}
+
+The Weiner reconstructions thus provides the unbiased, minimum least-square error estimate of the  true underlying signal, provided that the signal is governed by a Gaussian process.
+\section{Persistent homology}
+
+\section{Results and discussion}
+
+\end{document}
