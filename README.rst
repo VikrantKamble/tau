@@ -1,4 +1,10 @@
-You are seeing this description because the package owner is lazy and did not
-provide a detailed description for its project ;-)
+**T**opological **A**nalysis of **U**nder-densities
 
-Since you are here, please help with the tau's documentation!
+Python package that does the following things:
+
+1. Weiner reconstruction of the flux field from Lyman-alpha forest measurements
+2. Persistent homology analysis on the reconstructed map
+3. Routines to extract information from the *barcode* diagrams obtained from above.
+
+
+
