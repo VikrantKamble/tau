@@ -22,8 +22,8 @@ def celestial_rot_matrix(ra_point, dec_point, is_rad=True):
 
     # ADOPTED FROM: https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
     # Rotation Matrix to rotate the points vectors
-    Q = np.eye(3) - np.sin(dec_point) * K +\
-        (1 - np.cos(dec_point)) * np.matmul(K, K)
+    Q = np.eye(3) - np.cos(dec_point) * K +\
+        (1 - np.sin(dec_point)) * np.matmul(K, K)
 
     return Q
 

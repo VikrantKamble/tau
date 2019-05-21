@@ -10,7 +10,7 @@ from astropy.io import fits
 
 
 class TauClass:
-    def __init__(self, filepath=None, spacing=4., preprocess=True, in_rad=True):
+    def __init__(self, filepath=None, spacing=4., preprocess=True):
         if filepath is None:
             filepath = sys.argv[1]
         self.data_file = fits.open(filepath)
@@ -21,7 +21,6 @@ class TauClass:
         self.pixel_data = None
 
         self.spacing = spacing
-        self.in_rad = in_rad
 
         # get locations on the celestial sphere
         if preprocess:
@@ -55,7 +54,7 @@ class TauClass:
             print("+++ Using calculated RA and DEC mean +++")
             center = [self.q_loc[:, 0].mean(), self.q_loc[:, 1].mean()]
 
-        self.rot_matrix = celestial_rot_matrix(*center, is_rad=self.in_rad)
+        self.rot_matrix = celestial_rot_matrix(*center, is_rad=False)
 
     def get_data(self, skewers_num=None, skewers_perc=1., los_sampling=3,
                  xtype='loglam', plotit=False, **kwargs):
@@ -94,13 +93,10 @@ class TauClass:
         print('****** READING ****** \n')
         for i in ixs:
             tb = self.data_file[i].data
-            rcomov = tb['RCOMOV']
+            rcomov = tb['RCOMOV'][::los_sampling]
 
             # convert spherical to cartesian cordinates
-            ra, dec = self.q_loc[i-1, :2]
-
-            if not self.in_rad:
-                ra, dec = np.deg2rad([ra, dec])
+            ra, dec = np.deg2rad(self.q_loc[i-1, :2])
 
             x = np.cos(dec) * np.cos(ra) * rcomov
             y = np.cos(dec) * np.sin(ra) * rcomov

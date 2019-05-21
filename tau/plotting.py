@@ -39,7 +39,7 @@ def tau_scatter(x, y, z, v, limits=None):
 
 
 def visualizeMap(map_file, cfg_file, cuts, dir=2, data_file=None, width=2,
-                 prefix='test', plot_skewer=True, plot_bin=False, limits=None):
+                 prefix='test', plot_skewer=True, limits=None):
     """
     Plot the mapped data
 
@@ -57,7 +57,10 @@ def visualizeMap(map_file, cfg_file, cuts, dir=2, data_file=None, width=2,
 
     # read data file
     if data_file is not None:
-        np_data = np.loadtxt(data_file)
+        if data_file[-3:] == 'npy':
+            np_data = np.load(data_file)
+        else:
+            np_data = np.loadtxt(data_file)
         xx, yy, zz, _, vals, sk_idx = np_data.T
 
     # read map data
@@ -113,7 +116,7 @@ def visualizeMap(map_file, cfg_file, cuts, dir=2, data_file=None, width=2,
         plot_data = np.take(map_data, ele, axis=dir)
         cbar = ax[ii].imshow(plot_data.T, origin="lower", vmin=limits[0],
                              vmax=limits[1], extent=(0, l0, 0, l1),
-                             cmap=plt.cm.jet)
+                             cmap=plt.cm.seismic)
 
         # plot the raw data points
         if data_file is not None:
@@ -130,20 +133,7 @@ def visualizeMap(map_file, cfg_file, cuts, dir=2, data_file=None, width=2,
                 # overplot the scatter on the mapped plot
                 ax[ii].scatter(agg_df['x'], agg_df['y'], c=agg_df['v'],
                                vmin=limits[0], vmax=limits[1], edgecolor='k',
-                               cmap=plt.cm.jet)
-
-            if plot_bin:
-                # average over data points in a grid same as Weiner map
-                # df = binned_statistic_2d(xx[ixs], yy[ixs], vals[ixs],
-                #                          bins=[xedges, yedges]).statistic
-
-                # cbar = ax[ii].imshow(df.T, origin="lower", vmin=vmin, vmax=vmax,
-                #                      extent=(0, lx, 0, ly), cmap=plt.cm.jet)
-
-                # ax[ii].scatter(np.ravel(map_data[:, :, ele].T), np.ravel(df.T),
-                #                alpha=0.1, c='b')
-                # ax[ii].plot([-2, 2], [-2, 2])
-                pass
+                               cmap=plt.cm.seismic)
 
         ax[ii].set_title(r"$z = %.1f [h^{-1}\ Mpc]$" % centers[ele])
 
