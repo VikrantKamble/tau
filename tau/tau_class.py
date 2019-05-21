@@ -7,7 +7,6 @@ import numpy as np
 from tau.data_wrangle import celestial_rot_matrix
 from .plotting import tau_scatter
 from astropy.io import fits
-from astropy.cosmology import Planck15
 
 
 class TauClass:
@@ -58,9 +57,8 @@ class TauClass:
 
         self.rot_matrix = celestial_rot_matrix(*center, is_rad=self.in_rad)
 
-    def get_data(self, xlabel='LOGLAM', ylabel='DELTA_T', nlabel=None,
-                 skewers_num=None, skewers_perc=1., los_sampling=3,
-                 xtype='loglam', plotit=True, **kwargs):
+    def get_data(self, skewers_num=None, skewers_perc=1., los_sampling=3,
+                 xtype='loglam', plotit=False, **kwargs):
         """ Load skewer data and convert to cartesian cordinates
 
         Parameters:
@@ -93,32 +91,10 @@ class TauClass:
         x_sig, y_sig, z_sig = [], [], []
         n_sig, v_sig, sx_sig = [], [], []
 
-        # check if given xlabel and ylabel exist in HDUs
-        foo = self.data_file[1].data
-        col_names = foo.dtype.names
-
-        if xlabel not in col_names:
-            raise AttributeError('X-data not found')
-        if ylabel not in col_names:
-            raise AttributeError('Y-data not found')
-
         print('****** READING ****** \n')
         for i in ixs:
-            hdu = self.data_file[i].data
-            xdata = hdu[xlabel]
-
-            # thin the data along the Line-of-Sight
-            xdata = xdata[::los_sampling]
-
-            if xtype == 'loglam':
-                # convert from wavelength to redshift
-                lam = 10 ** xdata
-                z_abs = lam / 1215.67 - 1
-
-                # convert from redshift to comoving distance
-                rcomov = Planck15.comoving_distance(z_abs).value * Planck15.h
-            else:
-                rcomov = xdata
+            tb = self.data_file[i].data
+            rcomov = tb['RCOMOV']
 
             # convert spherical to cartesian cordinates
             ra, dec = self.q_loc[i-1, :2]
@@ -126,18 +102,18 @@ class TauClass:
             if not self.in_rad:
                 ra, dec = np.deg2rad([ra, dec])
 
-            x = np.sin(dec) * np.cos(ra) * rcomov
-            y = np.sin(dec) * np.sin(ra) * rcomov
-            z = np.cos(dec) * rcomov
+            x = np.cos(dec) * np.cos(ra) * rcomov
+            y = np.cos(dec) * np.sin(ra) * rcomov
+            z = np.sin(dec) * rcomov
 
             # get value of the field
-            value = hdu[ylabel][::los_sampling]
+            value = tb['DELTA_T'][::los_sampling]
 
             # get meaasurement uncertainity
-            if nlabel is None:
-                noise = 0.1 * np.ones_like(x)
+            if 'WEIGHTS' in tb.dtype.names:
+                noise = 1.0 / np.sqrt(tb['WEIGHTS'][::los_sampling])
             else:
-                noise = 1.0 / np.sqrt(hdu[nlabel][::los_sampling])
+                noise = 0.1 * np.ones_like(x)
 
             # skewer index
             sx = i * np.ones_like(x)
@@ -151,7 +127,8 @@ class TauClass:
             sx_sig = np.hstack((sx_sig, sx))
 
         # rotating the points
-        x_sig, y_sig, z_sig = np.dot(self.rot_matrix, np.array([x_sig, y_sig, z_sig]))
+        x_sig, y_sig, z_sig = np.dot(self.rot_matrix,
+                                     np.array([x_sig, y_sig, z_sig]))
 
         # final pixel data -  xloc, yloc, zloc, noise, field, skewer_number
         self.pixel_data = np.vstack([x_sig, y_sig, z_sig, n_sig, v_sig, sx_sig]).T
