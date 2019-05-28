@@ -2,8 +2,10 @@ import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import binned_statistic_2d
-from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.patches import Circle
+
+
+from tau import barcode
 
 
 def tau_scatter(x, y, z, v, limits=None):
@@ -38,8 +40,9 @@ def tau_scatter(x, y, z, v, limits=None):
     plt.show()
 
 
-def visualizeMap(map_file, cfg_file, cuts, dir=2, data_file=None, width=2,
-                 prefix='test', plot_skewer=True, limits=None):
+def visualizeMap(map_file, cfg_file, cuts, dir=2, json_file=None,
+                 data_file=None, all_qso=None, threshold=0.5,
+                 width=2, prefix='test', plot_skewer=True, limits=None):
     """
     Plot the mapped data
 
@@ -55,7 +58,7 @@ def visualizeMap(map_file, cfg_file, cuts, dir=2, data_file=None, width=2,
     Returns: None
     """
 
-    # read data file
+    # read file that contains the pixel data
     if data_file is not None:
         if data_file[-3:] == 'npy':
             np_data = np.load(data_file)
@@ -63,89 +66,119 @@ def visualizeMap(map_file, cfg_file, cuts, dir=2, data_file=None, width=2,
             np_data = np.loadtxt(data_file)
         xx, yy, zz, _, vals, sk_idx = np_data.T
 
-    # read map data
-    map_data = np.fromfile(map_file)
+        pos = np.array([xx, yy, zz])
 
     # read metadata from the config file
-    with open(cfg_file) as f:
-        fields = f.readlines()
-        cfg = {}
-        for field in fields:
-            data = field.split('=')
-            key = data[0].strip()
-            val = float(data[1].strip())
-            cfg[key] = val
+    cfg_data = np.loadtxt(cfg_file, delimiter="=", usecols=1)
+    lp = cfg_data[:3]
+    ls = cfg_data[4:7].astype(int)
 
-    # shape of the mapped data grid
-    shape = (int(cfg['map_nx']), int(cfg['map_ny']), int(cfg['map_nz']))
-    map_data = map_data.reshape(shape)
+    # read map data
+    map_data = np.fromfile(map_file)
+    map_data = map_data.reshape(ls)
 
-    # size of the mapped data cube
-    lx, ly, lz = float(cfg['lx']), float(cfg['ly']), float(cfg['lz'])
+    # read json data and make void catalog
+    if json_file is not None:
+        mybar = barcode.Barcode(json_file)
+        vs, vc = mybar.get_voids_at_threshold(threshold)
 
-    # bin edges of the mapped grid
+    # the center value of the slices for the mapped data
+    dx = lp[dir] / ls[dir]
+    centers = (np.arange(ls[dir]) + 0.5) * ls[dir]
+
+    lx, ly, lz = lp
     if dir == 0:
-        edges = np.linspace(0, lx, shape[0] + 1)
         l0, l1 = ly, lz
-        data_ax0, data_ax1, data_fix = yy, zz, xx
+        if data_file is not None:
+            data_ax0, data_ax1, data_fix = yy, zz, xx
     elif dir == 1:
-        edges = np.linspace(0, ly, shape[1] + 1)
         l0, l1 = lx, lz
-        data_ax0, data_ax1, data_fix = xx, zz, yy
+        if data_file is not None:
+            data_ax0, data_ax1, data_fix = xx, zz, yy
     else:
-        edges = np.linspace(0, lz, shape[2] + 1)
         l0, l1 = lx, ly
-        data_ax0, data_ax1, data_fix = xx, yy, zz
+        if data_file is not None:
+            data_ax0, data_ax1, data_fix = xx, yy, zz
 
-    centers = (edges[:-1] + edges[1:]) / 2.
+    n_plots = len(cuts)
+    ll = [0, 1, 2]
+    ll.remove(dir)
+
+    fig, ax = plt.subplots(ncols=int(np.ceil(n_plots / 3)), nrows=3)
+    ax = np.atleast_2d(ax)
 
     # set limits for colorbar
     if limits is None:
         limits = [map_data.min(), map_data.max()]
-
-    # number of plots to plot
-    n_plots = len(cuts)
-
-    fig, ax = plt.subplots(nrows=int(np.ceil(n_plots / 3)), ncols=3)
-    ax = np.atleast_2d(ax)
 
     for ct, ele in enumerate(cuts):
         ii = (ct // 3, ct % 3)
 
         # plot the mapped data
         plot_data = np.take(map_data, ele, axis=dir)
-        cbar = ax[ii].imshow(plot_data.T, origin="lower", vmin=limits[0],
-                             vmax=limits[1], extent=(0, l0, 0, l1),
-                             cmap=plt.cm.seismic)
+        cbar = ax[ii].imshow(plot_data, origin="lower", vmin=limits[0],
+                             vmax=limits[1], extent=(0, l1, 0, l0),
+                             cmap=plt.cm.seismic, interpolation='gaussian')
+
+        # plot the voids if json_file
+        if json_file is not None:
+            # indices where the voids reside
+            vcs = vc[:, dir].astype(int)
+            v_ixs = np.where(vcs == ele)[0]
+
+            for ixs in v_ixs:
+                # radius = (3 * vs[ixs] / (4 * np.pi))
+                radius = 10
+                cs = ((vc[ixs][ll[1]] + 0.5) * dx, (vc[ixs][ll[0]] + 0.5) * dx)
+                circ = Circle(cs, radius,
+                              facecolor='None', edgecolor='k', linewidth=2,
+                              linestyle='dashed')
+                ax[ii].add_patch(circ)
 
         # plot the raw data points
         if data_file is not None:
             ixs = ((data_fix > centers[ele] - width) &
                    (data_fix <= centers[ele] + width))
 
-            if plot_skewer:
-                agg = np.array([data_ax0[ixs], data_ax1[ixs], vals[ixs]]).T
-                df = pd.DataFrame(agg, sk_idx[ixs], ['x', 'y', 'v'])
+            agg = np.array([data_ax0[ixs], data_ax1[ixs], vals[ixs]]).T
+            df = pd.DataFrame(agg, sk_idx[ixs], ['x', 'y', 'v'])
 
-                # average over the pixels along the fix axis of a given width
-                agg_df = df.groupby(df.index).agg(np.mean)
+            # average over the pixels along the fix axis of a given width
+            agg_df = df.groupby(df.index).agg(np.mean)
 
-                # overplot the scatter on the mapped plot
+            # overplot the scatter on the mapped plot
+            if dir == 2:
                 ax[ii].scatter(agg_df['x'], agg_df['y'], c=agg_df['v'],
                                vmin=limits[0], vmax=limits[1], edgecolor='k',
-                               cmap=plt.cm.seismic)
+                               cmap=plt.cm.coolwarm)
+            else:
+                ax[ii].scatter(data_ax0[ixs][::10], data_ax1[ixs][::10], c=vals[ixs][::10],
+                               vmin=limits[0], vmax=limits[1], edgecolor='k',
+                               cmap=plt.cm.coolwarm)
 
-        ax[ii].set_title(r"$z = %.1f [h^{-1}\ Mpc]$" % centers[ele])
+        if all_qso is not None:
+            rpar = np.take(all_qso, dir, axis=1)
+            ixs = np.where((rpar > centers[ele] - width) &
+                           (rpar <= centers[ele] + width))[0]
+
+            # overplot the scatter on the mapped plot
+            rperp = [0, 1, 2]
+            rperp.remove(dir)
+
+            if len(ixs) > 0:
+                ax[ii].scatter(*np.take(all_qso, rperp, axis=1)[ixs], c='k')
+
+        ax[ii].set_title(r"$z = %.1f [h^{-1}\ {\rm Mpc}]$" % centers[ele])
 
         # plot labels
-        if ii[1] == 0:
-            ax[ii].set_ylabel(r'$y\ [h^{-1} Mpc]$')
+        if ii[1] == 1:
+            ax[ii].set_ylabel(r'$y\ [h^{-1} {\rm Mpc}]$')
 
         if ii[0] == int(np.ceil(n_plots / 3)) - 1:
-            ax[ii].set_xlabel(r'$x\ [h^{-1} Mpc]$')
+            ax[ii].set_xlabel(r'$x\ [h^{-1} {\rm Mpc}]$')
 
     # Common colorbar for all the subplots
-    fig.colorbar(cbar, ax=ax.ravel().tolist(), orientation='horizontal')
+    fig.colorbar(cbar, ax=ax.ravel().tolist(), orientation='vertical')
 
     plt.show()
     # plt.savefig(prefix + 'plot.pdf')

@@ -37,35 +37,37 @@ class Barcode:
 
         return _births[ix], _deaths[ix], _sizes[ix]
 
-    def get_voids_at_threshold(self, threshold):
+    def get_voids_at_threshold(self, threshold, get_catalog=True):
         """
         Sizes and locations of the components that are alive
         at a given threshold
         """
         _loc = []
-        _size = []
 
         # bar is a dictionary for each barcode
-        for key, value in self.data.items():
-            dist = np.inf
-            pos = -1
+        for k, v in self.data.items():
+            hist = v['history']
 
-            # remove birth and death key
-            keys = [key for key in value.keys() if
-                    key not in ['birth', 'death']]
+            lst = []
+            for kk, vv in hist.items():
+                if float(kk) > threshold:
+                    lst += vv
+            if len(lst) > 0:
+                _loc.append(lst)
 
-            # choose the closest step from the threshold
-            for i in range(0, len(keys)):
-                curr_dist = np.float(keys[i]) - threshold
+        # void sizes and centers
+        vs, vc = [], []
+        for lst in _loc:
+            vs.append(len(lst))
+            vc.append(np.mean(lst, 0))
 
-                if (curr_dist > 0) and (curr_dist < dist):
-                    pos = i
+        vs = np.array(vs)
+        vc = np.array(vc)
+        arg_srt = np.argsort(vs)
+        vs = vs[arg_srt[::-1]]
+        vc = vc[arg_srt[::-1]]
 
-            # if such step exists, append the mean location
-            if pos != -1:
-                _key = keys[pos]
+        if get_catalog:
+            return vs, vc
 
-                _loc.append(value[_key])
-                _size.append(len(value[_key]))
-
-        return _loc, _size
+        return _loc

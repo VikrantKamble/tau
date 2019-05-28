@@ -13,7 +13,7 @@ mpl.rcParams['ytick.labelsize'] = 18
 # mpl.rcParams['ytick.direction'] = 'in'
 
 mpl.rcParams['axes.labelsize'] = 24
-mpl.rcParams['axes.titlesize'] = 22
+mpl.rcParams['axes.titlesize'] = 20
 
 mpl.rcParams['lines.linewidth'] = 0.8
 mpl.rcParams['font.size'] = 14
